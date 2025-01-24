@@ -2,13 +2,14 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 const Context = createContext()
 
 export default function SupabaseProvider({ children }) {
   const [supabase] = useState(() => createClientComponentClient())
   const router = useRouter()
+  const pathname = usePathname()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -22,12 +23,16 @@ export default function SupabaseProvider({ children }) {
           setSession(newSession)
           
           if (event === 'SIGNED_IN') {
-            router.push('/create-board')
-            router.refresh()
+            if (pathname !== '/create-board') {
+              router.push('/create-board')
+              router.refresh()
+            }
           }
           if (event === 'SIGNED_OUT') {
-            router.push('/login')
-            router.refresh()
+            if (pathname !== '/login') {
+              router.push('/login')
+              router.refresh()
+            }
           }
         })
 
@@ -40,7 +45,7 @@ export default function SupabaseProvider({ children }) {
     }
 
     initializeAuth()
-  }, [supabase, router])
+  }, [supabase, router, pathname])
 
   return (
     <Context.Provider value={{ supabase, session, isLoading }}>

@@ -11,13 +11,17 @@ export async function middleware(req: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession()
 
-    // Protect /create-board route
-    if (req.nextUrl.pathname.startsWith('/create-board')) {
-      if (!session) {
-        const redirectUrl = new URL('/login', req.url)
-        redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
-        return NextResponse.redirect(redirectUrl)
-      }
+    // Allow access to public routes
+    const publicRoutes = ['/', '/login', '/auth/callback']
+    if (publicRoutes.includes(req.nextUrl.pathname)) {
+      return res
+    }
+
+    // Protect /create-board and other private routes
+    if (!session) {
+      const redirectUrl = new URL('/login', req.url)
+      redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
+      return NextResponse.redirect(redirectUrl)
     }
 
     return res
@@ -28,5 +32,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/create-board/:path*']
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 } 
