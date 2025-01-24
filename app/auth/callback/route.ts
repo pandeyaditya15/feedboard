@@ -8,27 +8,37 @@ export async function GET(request: Request) {
   try {
     const requestUrl = new URL(request.url)
     const code = requestUrl.searchParams.get('code')
-    const next = requestUrl.searchParams.get('next') || '/create-board'
 
-    if (code) {
-      const cookieStore = cookies()
-      const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-      
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
-      if (error) {
-        throw error
-      }
-
-      // Refresh the session
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error('Session not found after code exchange')
-      }
+    if (!code) {
+      throw new Error('No code provided')
     }
 
-    return NextResponse.redirect(new URL(next, request.url))
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+
+    // Exchange the code for a session
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    if (exchangeError) {
+      throw exchangeError
+    }
+
+    // Get the session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      throw sessionError
+    }
+
+    if (!session) {
+      throw new Error('No session found')
+    }
+
+    // Redirect to create-board on successful auth
+    return NextResponse.redirect(new URL('/create-board', request.url))
   } catch (error) {
     console.error('Auth callback error:', error)
-    return NextResponse.redirect(new URL('/login?error=auth', request.url))
+    // Redirect to login with error
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent('Authentication failed')}`, request.url)
+    )
   }
 } 
