@@ -27,7 +27,7 @@ const STATUS_COLORS = {
   LAUNCHED: "bg-[#00FF94]"
 }
 
-export default function BoardManage({ board }) {
+export default function BoardManage(props) {
   const router = useRouter()
   const { supabase } = useSupabase()
   const [features, setFeatures] = useState([])
@@ -37,6 +37,7 @@ export default function BoardManage({ board }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [user, setUser] = useState(null)
+  const board = props.board || {}
 
   useEffect(() => {
     getUser()
@@ -75,8 +76,7 @@ export default function BoardManage({ board }) {
   }
 
   const handleCopyLink = () => {
-    const link = `https://feedboard.vercel.app/board/${board?.id}/feature-request`
-    navigator.clipboard.writeText(link)
+    navigator.clipboard.writeText(`${window.location.origin}/board/${board?.id}/feature-request`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -216,12 +216,6 @@ export default function BoardManage({ board }) {
                   Roadmap
                 </Button>
               </div>
-              <Button
-                onClick={handleDeleteBoard}
-                className="w-full bg-[#FF4D6A] hover:bg-[#FF6B84] text-white font-bold h-10 px-4 rounded-xl shadow-[0_4px_0_#CC3D55] hover:shadow-[0_6px_0_#CC3D55] transform hover:-translate-y-0.5 transition-all duration-200"
-              >
-                Delete Board
-              </Button>
             </div>
           </div>
         </Card>
@@ -266,6 +260,7 @@ export default function BoardManage({ board }) {
 
           {/* Feature Cards */}
           <div className="flex flex-col gap-6">
+            {/* Feature Cards */}
             {loading ? (
               <div className="text-white text-center">Loading features...</div>
             ) : error ? (

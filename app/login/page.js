@@ -1,17 +1,27 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { useSupabase } from '@/components/providers/supabase-provider'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function Login() {
-  const { supabase } = useSupabase()
+  const { supabase, session, isLoading } = useSupabase()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (!isLoading && session) {
+      const redirectTo = searchParams.get('redirectTo') || '/create-board'
+      router.push(redirectTo)
+    }
+  }, [session, isLoading, router, searchParams])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -36,7 +46,11 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       })
       if (error) throw error

@@ -9,21 +9,41 @@ const Context = createContext()
 export default function SupabaseProvider({ children }) {
   const [supabase] = useState(() => createClientComponentClient())
   const router = useRouter()
+  const [session, setSession] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        router.push('/create-board')
-      }
-    })
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession()
+        setSession(initialSession)
 
-    return () => subscription.unsubscribe()
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+          setSession(newSession)
+          
+          if (event === 'SIGNED_IN') {
+            router.push('/create-board')
+            router.refresh()
+          }
+          if (event === 'SIGNED_OUT') {
+            router.push('/login')
+            router.refresh()
+          }
+        })
+
+        return () => subscription.unsubscribe()
+      } catch (error) {
+        console.error('Error initializing auth:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    initializeAuth()
   }, [supabase, router])
 
   return (
-    <Context.Provider value={{ supabase }}>
+    <Context.Provider value={{ supabase, session, isLoading }}>
       {children}
     </Context.Provider>
   )
