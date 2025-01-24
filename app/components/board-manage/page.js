@@ -40,11 +40,13 @@ export default function BoardManage(props) {
   const board = props.board || {}
 
   useEffect(() => {
-    getUser()
+    if (supabase) {
+      getUser()
+    }
     if (board?.id) {
       fetchFeatures()
     }
-  }, [board?.id])
+  }, [supabase, board?.id])
 
   async function getUser() {
     try {
@@ -76,7 +78,10 @@ export default function BoardManage(props) {
   }
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/board/${board?.id}/feature-request`)
+    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+      : window.location.origin
+    navigator.clipboard.writeText(`${baseUrl}/board/${board?.id}/feature-request`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -127,6 +132,7 @@ export default function BoardManage(props) {
 
   const handleSignOut = async () => {
     try {
+      if (!supabase) return
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       router.push('/login')

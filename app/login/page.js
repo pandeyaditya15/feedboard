@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { useSupabase } from '@/components/providers/supabase-provider'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function Login() {
+function LoginContent() {
   const { supabase, session, isLoading } = useSupabase()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -18,7 +18,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!isLoading && session) {
-      const redirectTo = searchParams.get('redirectTo') || '/create-board'
+      const redirectTo = searchParams?.get('redirectTo') || '/create-board'
       router.push(redirectTo)
     }
   }, [session, isLoading, router, searchParams])
@@ -134,5 +134,13 @@ export default function Login() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   )
 }
