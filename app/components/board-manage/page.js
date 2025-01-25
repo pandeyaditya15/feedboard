@@ -48,6 +48,35 @@ export default function BoardManage(props) {
     }
   }, [supabase, board?.id])
 
+  useEffect(() => {
+    fetchFeatures()
+
+    // Subscribe to feature changes
+    const channel = supabase
+      .channel('board_features')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'features',
+        filter: `board_id=eq.${board?.id}`
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setFeatures(currentFeatures => 
+            currentFeatures.map(feature => 
+              feature.id === payload.new.id ? { ...feature, ...payload.new } : feature
+            )
+          )
+        } else if (payload.eventType === 'INSERT') {
+          setFeatures(currentFeatures => [payload.new, ...currentFeatures])
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [board?.id])
+
   async function getUser() {
     try {
       const { data: { user }, error } = await supabase.auth.getUser()
@@ -142,10 +171,10 @@ export default function BoardManage(props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#1E1B3A] bg-[url('/subway-pattern.png')] p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header with user info */}
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[#1E1B3A] bg-[url('/subway-pattern.png')] p-4">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-[#FFD600] p-2 rounded-xl">
               <Trophy className="h-6 w-6 text-[#1E1B3A]" />
@@ -181,155 +210,158 @@ export default function BoardManage(props) {
           )}
         </div>
 
-        {/* Share Section */}
-        <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-6 rounded-3xl">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#FFD600] p-2 rounded-xl">
-                <Rocket className="h-6 w-6 text-[#1E1B3A]" />
-              </div>
-              <h2 className="text-xl font-bold text-white">Share</h2>
-            </div>
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2 bg-[#1E1B3A] p-3 rounded-xl border-2 border-[#FFD600]/30">
-                <div className="flex-1 text-[#B4B4D9] text-sm truncate">
-                  feedboard.vercel.app/board/{board?.id}
-                </div>
-                <Button
-                  onClick={handleCopyLink}
-                  className="bg-transparent hover:bg-[#373964] text-white h-8 w-8 p-0 rounded-lg"
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4 text-[#00FF94]" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => router.push(`/board/${board?.id}/feature-request`)}
-                  className="flex-1 bg-[#2D2B52] hover:bg-[#373964] text-white font-bold h-10 rounded-xl border-2 border-[#FFD600]/30 hover:border-[#FFD600] transition-all duration-200 flex items-center justify-center gap-2"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  Feature Requests
-                </Button>
-                <Button
-                  onClick={() => router.push(`/board/${board?.id}/roadmap`)}
-                  className="flex-1 bg-[#2D2B52] hover:bg-[#373964] text-white font-bold h-10 rounded-xl border-2 border-[#FFD600]/30 hover:border-[#FFD600] transition-all duration-200 flex items-center justify-center gap-2"
-                >
-                  <Rocket className="h-4 w-4" />
-                  Roadmap
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Features Section */}
-        <div className="space-y-6">
-          {/* Filter Section */}
-          <div className="flex flex-wrap gap-3 mb-6">
-            <div className="flex items-center gap-3 pr-16">
-              <div className="bg-[#00C2FF] p-2 rounded-xl">
-                <Trophy className="h-6 w-6 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-white">Updates</h2>
-            </div>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white h-10 w-full sm:w-[140px] rounded-xl">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#2D2B52] border-2 border-[#FFD600]/30">
-                <SelectItem value="trending" className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">Trending</SelectItem>
-                <SelectItem value="newest" className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">Newest</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={selectedTag} onValueChange={setSelectedTag}>
-              <SelectTrigger className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white h-10 w-full sm:w-[160px] rounded-xl">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#2D2B52] border-2 border-[#FFD600]/30">
-                <SelectItem value="all" className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">All categories</SelectItem>
-                {Object.keys(TAG_COLORS).map(tag => (
-                  <SelectItem key={tag} value={tag} className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
-                    <div className="flex items-center gap-2">
-                      <Badge className={`${TAG_COLORS[tag]} border-0 text-sm px-3 py-1 rounded-lg`}>
-                        {tag}
-                      </Badge>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Side - Feature Management */}
+          <div className="lg:col-span-1">
+            <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-4 sm:p-6 rounded-3xl sticky top-4">
+              <div className="space-y-4">
+                {/* Share Section */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="bg-[#FFD600] p-2 rounded-xl">
+                      <Rocket className="h-5 w-5 sm:h-6 sm:w-6 text-[#1E1B3A]" />
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    <h2 className="text-lg sm:text-xl font-bold text-white">Board Link</h2>
+                  </div>
+                  <div className="flex items-center gap-2 bg-[#1E1B3A] p-3 rounded-xl border-2 border-[#FFD600]/30 mb-3">
+                    <div className="flex-1 text-[#B4B4D9] text-sm truncate">
+                      feedboard.vercel.app/board/{board?.id}
+                    </div>
+                    <Button
+                      onClick={handleCopyLink}
+                      className="bg-transparent hover:bg-[#373964] text-white h-8 w-8 p-0 rounded-lg"
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-[#00FF94]" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => router.push(`/board/${board?.id}/roadmap`)}
+                    className="w-full bg-[#2D2B52] hover:bg-[#373964] text-white font-bold h-10 rounded-xl border-2 border-[#FFD600]/30 hover:border-[#FFD600] transition-all duration-200 flex items-center justify-center gap-2 text-sm mb-3"
+                  >
+                    <Rocket className="h-4 w-4" />
+                    View Roadmap
+                  </Button>
+                  <Button
+                    onClick={() => router.push(`/board/${board?.id}/feature-request`)}
+                    className="w-full bg-[#2D2B52] hover:bg-[#373964] text-white font-bold h-10 rounded-xl border-2 border-[#FFD600]/30 hover:border-[#FFD600] transition-all duration-200 flex items-center justify-center gap-2 text-sm"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    View Requests
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
 
-          {/* Feature Cards */}
-          <div className="flex flex-col gap-6">
-            {/* Feature Cards */}
-            {loading ? (
-              <div className="text-white text-center">Loading features...</div>
-            ) : error ? (
-              <div className="text-red-500 text-center">{error}</div>
-            ) : (
-              sortedAndFilteredFeatures.map(feature => (
-                <Card
-                  key={feature.id}
-                  className="bg-[#2D2B52] border-2 border-[#FFD600]/30 p-6 rounded-2xl hover:border-[#FFD600] transition-all duration-300 group relative"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-white leading-tight mb-4 pr-24">{feature.title}</h3>
-                      <p className="text-[#B4B4D9] text-sm line-clamp-2 mb-4">{feature.description}</p>
+          {/* Right Side - Features Section */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Filter Section */}
+            <div className="flex flex-wrap gap-3 mb-6">
+              <div className="flex items-center gap-3 pr-16">
+                <div className="bg-[#00C2FF] p-2 rounded-xl">
+                  <Trophy className="h-6 w-6 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-white">Updates</h2>
+              </div>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white h-10 w-full sm:w-[140px] rounded-xl">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#2D2B52] border-2 border-[#FFD600]/30">
+                  <SelectItem value="trending" className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">Trending</SelectItem>
+                  <SelectItem value="newest" className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">Newest</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedTag} onValueChange={setSelectedTag}>
+                <SelectTrigger className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white h-10 w-full sm:w-[160px] rounded-xl">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#2D2B52] border-2 border-[#FFD600]/30">
+                  <SelectItem value="all" className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">All categories</SelectItem>
+                  {Object.keys(TAG_COLORS).map(tag => (
+                    <SelectItem key={tag} value={tag} className="text-white hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
                       <div className="flex items-center gap-2">
-                        <Badge className={`${TAG_COLORS[feature.tag]} border-0 text-xs px-2 py-0.5 rounded-lg`}>
-                          {feature.tag}
+                        <Badge className={`${TAG_COLORS[tag]} border-0 text-sm px-3 py-1 rounded-lg`}>
+                          {tag}
                         </Badge>
-                        <Select value={feature.status || "PENDING"} onValueChange={(value) => handleStatusChange(feature.id, value)}>
-                          <SelectTrigger className="bg-transparent border-0 text-white h-5 text-xs pr-20">
-                            <SelectValue>
-                              <Badge className={`${STATUS_COLORS[feature.status || "PENDING"]} text-xs px-2 py-0.5 rounded-lg`}>
-                                {(feature.status || "PENDING").replace(/_/g, " ")}
-                              </Badge>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#2D2B52] border-2 border-[#FFD600]/30">
-                            <SelectItem value="UNDER_REVIEW" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
-                              <Badge className={`${STATUS_COLORS.UNDER_REVIEW} text-xs px-2 py-0.5 rounded-lg`}>UNDER REVIEW</Badge>
-                            </SelectItem>
-                            <SelectItem value="PRE_PRODUCTION" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
-                              <Badge className={`${STATUS_COLORS.PRE_PRODUCTION} text-xs px-2 py-0.5 rounded-lg`}>PRE PRODUCTION</Badge>
-                            </SelectItem>
-                            <SelectItem value="IN_PRODUCTION" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
-                              <Badge className={`${STATUS_COLORS.IN_PRODUCTION} text-xs px-2 py-0.5 rounded-lg`}>IN PRODUCTION</Badge>
-                            </SelectItem>
-                            <SelectItem value="LAUNCHED" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
-                              <Badge className={`${STATUS_COLORS.LAUNCHED} text-xs px-2 py-0.5 rounded-lg`}>LAUNCHED</Badge>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Feature Cards */}
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-white text-center">Loading features...</div>
+              ) : error ? (
+                <div className="text-red-500 text-center">{error}</div>
+              ) : (
+                sortedAndFilteredFeatures.map(feature => (
+                  <Card
+                    key={feature.id}
+                    className="bg-[#2D2B52] border-2 border-[#FFD600]/30 p-6 rounded-2xl hover:border-[#FFD600] transition-all duration-300 group relative"
+                  >
+                    <div className="flex items-start justify-between gap-6">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-white leading-tight mb-4 truncate">{feature.title}</h3>
+                        <p className="text-[#B4B4D9] text-sm line-clamp-2 mb-4">{feature.description}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`${TAG_COLORS[feature.tag]} border-0 text-xs px-2 py-0.5 rounded-lg`}>
+                            {feature.tag}
+                          </Badge>
+                          <Select value={feature.status || "PENDING"} onValueChange={(value) => handleStatusChange(feature.id, value)}>
+                            <SelectTrigger className="bg-transparent border-0 text-white h-5 text-xs pr-20">
+                              <SelectValue>
+                                <Badge className={`${STATUS_COLORS[feature.status || "PENDING"]} text-xs px-2 py-0.5 rounded-lg`}>
+                                  {(feature.status || "PENDING").replace(/_/g, " ")}
+                                </Badge>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#2D2B52] border-2 border-[#FFD600]/30 z-50">
+                              <SelectItem value="UNDER_REVIEW" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
+                                <Badge className={`${STATUS_COLORS.UNDER_REVIEW} text-xs px-2 py-0.5 rounded-lg`}>UNDER REVIEW</Badge>
+                              </SelectItem>
+                              <SelectItem value="PRE_PRODUCTION" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
+                                <Badge className={`${STATUS_COLORS.PRE_PRODUCTION} text-xs px-2 py-0.5 rounded-lg`}>PRE PRODUCTION</Badge>
+                              </SelectItem>
+                              <SelectItem value="IN_PRODUCTION" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
+                                <Badge className={`${STATUS_COLORS.IN_PRODUCTION} text-xs px-2 py-0.5 rounded-lg`}>IN PRODUCTION</Badge>
+                              </SelectItem>
+                              <SelectItem value="LAUNCHED" className="text-gray-900 hover:bg-[#1E1B3A] focus:bg-[#1E1B3A]">
+                                <Badge className={`${STATUS_COLORS.LAUNCHED} text-xs px-2 py-0.5 rounded-lg`}>LAUNCHED</Badge>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="bg-[#FF4D6A] hover:bg-[#FF6B84] border-0 text-white font-bold h-19 w-16 flex flex-col items-center justify-center rounded-2xl shadow-[0_4px_0_#CC3D55] hover:shadow-[0_6px_0_#CC3D55] transform hover:-translate-y-0.5 transition-all duration-200 gap-1"
+                          onClick={() => handleVote(feature.id)}
+                        >
+                          <ArrowUpIcon className="h-4 w-4" />
+                          <span className="text-lg">{feature.votes}</span>
+                        </Button>
                       </div>
                     </div>
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="bg-[#FF4D6A] hover:bg-[#FF6B84] border-0 text-white font-bold h-19 w-16 flex flex-col items-center justify-center rounded-2xl shadow-[0_4px_0_#CC3D55] hover:shadow-[0_6px_0_#CC3D55] transform hover:-translate-y-0.5 transition-all duration-200 gap-1"
-                        onClick={() => handleVote(feature.id)}
-                      >
-                        <ArrowUpIcon className="h-4 w-4" />
-                        <span className="text-lg">{feature.votes}</span>
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))
-            )}
-            {features.length === 0 && (
-              <div className="col-span-full text-center text-[#B4B4D9]">
-                No features yet. Create one in the feature request page.
-              </div>
-            )}
+                  </Card>
+                ))
+              )}
+              {features.length === 0 && (
+                <div className="col-span-full text-center text-[#B4B4D9]">
+                  No features yet. Create one in the feature request page.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowUpIcon, BarChart2, Filter, Sparkles, Star, Trophy, Zap, Rocket } from "lucide-react"
+import { ArrowUpIcon, BarChart2, Filter, Sparkles, Star, Trophy, Zap, Rocket, MessageSquare } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useSupabase } from '@/components/providers/supabase-provider'
@@ -47,16 +47,71 @@ const STATUS_COLORS = {
 
 function Feature({ feature, onVote }) {
   const { supabase } = useSupabase()
-  const [isCommenting, setIsCommenting] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [comments, setComments] = useState([])
+  const [hasVoted, setHasVoted] = useState(false)
   const [username, setUsername] = useState("")
   const [comment, setComment] = useState("")
-  const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    checkVoteStatus()
     fetchComments()
+
+    // Subscribe to comment changes
+    const channel = supabase
+      .channel(`feature_${feature.id}_comments`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'comments',
+        filter: `feature_id=eq.${feature.id}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setComments(current => [payload.new, ...current])
+        }
+      })
+      .subscribe()
+
+    // Subscribe to vote changes
+    const voteChannel = supabase
+      .channel(`feature_${feature.id}_votes`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'feature_votes',
+        filter: `feature_id=eq.${feature.id}`
+      }, async () => {
+        // Recheck vote status when votes change
+        await checkVoteStatus()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+      supabase.removeChannel(voteChannel)
+    }
   }, [feature.id])
+
+  const checkVoteStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: votes } = await supabase
+        .from('feature_votes')
+        .select('id')
+        .eq('feature_id', feature.id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      setHasVoted(!!votes)
+    } catch (error) {
+      console.error('Error checking vote status:', error)
+    }
+  }
 
   async function fetchComments() {
     try {
@@ -95,7 +150,7 @@ function Feature({ feature, onVote }) {
       setComments([data, ...comments])
       setUsername("")
       setComment("")
-      setIsCommenting(false)
+      setShowComments(false)
     } catch (error) {
       console.error('Error adding comment:', error)
       setError(error.message)
@@ -104,92 +159,130 @@ function Feature({ feature, onVote }) {
     }
   }
 
-  return (
-    <Card 
-      id={`feature-${feature.id}`}
-      className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-6 rounded-3xl hover:border-[#FFD600] transition-all duration-300"
-    >
-      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-        <div className="flex-1">
-          <div>
-            <h3 className="text-xl font-bold text-white">{feature.title}</h3>
-            <p className="text-[#B4B4D9] mt-2">{feature.description}</p>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Badge className={`${TAG_COLORS[feature.tag]} border-0 text-xs px-2 py-0.5 rounded-lg`}>
-              {feature.tag}
-            </Badge>
-            <Badge className={`${STATUS_COLORS[feature.status]} text-[#1E1B3A] border-0 text-xs px-2 py-0.5 rounded-lg`}>
-              {feature.status.replace(/_/g, " ")}
-            </Badge>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={() => onVote(feature.id)}
-          className="w-full sm:w-20 bg-[#FF4D6A] hover:bg-[#FF6B84] border-0 text-white font-bold h-20 flex flex-col items-center justify-center rounded-2xl shadow-[0_4px_0_#CC3D55] hover:shadow-[0_6px_0_#CC3D55] transform hover:-translate-y-0.5 transition-all duration-200 gap-1"
-        >
-          <ArrowUpIcon className="h-6 w-6" />
-          <span className="text-xl">{feature.votes}</span>
-        </Button>
-      </div>
+  const handleVote = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
-      {/* Comments Section */}
-      <div className="mt-6 border-t border-[#FFD600]/20 pt-4">
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="text-white font-semibold">Comments ({comments.length})</h4>
+      if (hasVoted) {
+        await supabase
+          .from('feature_votes')
+          .delete()
+          .eq('feature_id', feature.id)
+          .eq('user_id', user.id)
+        
+        await onVote(feature.id, -1)
+        setHasVoted(false)
+      } else {
+        await supabase
+          .from('feature_votes')
+          .insert([
+            {
+              feature_id: feature.id,
+              user_id: user.id
+            }
+          ])
+        
+        await onVote(feature.id, 1)
+        setHasVoted(true)
+      }
+    } catch (error) {
+      console.error('Error handling vote:', error)
+    }
+  }
+
+  return (
+    <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-4 rounded-2xl hover:border-[#FFD600] transition-all duration-300">
+      <div className="space-y-3">
+        {/* Title and Vote Button Row */}
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <button 
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-left w-full"
+            >
+              <h3 className="font-bold text-white text-base sm:text-lg hover:text-[#FFD600] transition-colors">
+                {feature.title}
+              </h3>
+              <p className={`text-[#B4B4D9] text-sm mt-1 ${isExpanded ? '' : 'line-clamp-1'}`}>
+                {feature.description}
+              </p>
+            </button>
+          </div>
           <Button
-            variant="ghost"
-            onClick={() => setIsCommenting(!isCommenting)}
-            className="text-[#FFD600] hover:text-[#FFD600] hover:bg-[#FFD600]/10"
+            onClick={handleVote}
+            className={`${
+              hasVoted 
+                ? 'bg-[#FF4D6A] hover:bg-[#FF6B84] border-[#FF4D6A]' 
+                : 'bg-[#1E1B3A] hover:bg-[#373964] border-[#FFD600]/30'
+            } text-white font-bold h-10 w-16 rounded-xl border-2 transition-all duration-200 flex-shrink-0 flex items-center justify-center gap-1`}
           >
-            {isCommenting ? "Cancel" : "Add Comment"}
+            <ArrowUpIcon className="h-4 w-4" />
+            <span>{feature.votes}</span>
           </Button>
         </div>
 
-        {isCommenting && (
-          <div className="space-y-3 mb-4">
-            <Input
-              placeholder="Your username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white"
-              disabled={loading}
-            />
-            <Textarea
-              placeholder="Write your comment..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white min-h-[100px]"
-              disabled={loading}
-            />
-            {error && (
-              <div className="text-red-500 text-sm">{error}</div>
-            )}
+        {/* Tags and Actions Row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge className={`${TAG_COLORS[feature.tag]} text-xs px-2 py-0.5 rounded-lg`}>
+              {feature.tag}
+            </Badge>
+            <Badge className={`${STATUS_COLORS[feature.status || "PENDING"]} text-xs px-2 py-0.5 rounded-lg`}>
+              {(feature.status || "PENDING").replace(/_/g, " ")}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
             <Button
-              onClick={handleAddComment}
-              className="bg-[#FFD600] hover:bg-[#FFD600]/80 text-[#1E1B3A] font-semibold"
-              disabled={loading}
+              onClick={() => setShowComments(!showComments)}
+              className="bg-transparent hover:bg-[#373964] text-white h-8 px-3 rounded-lg flex items-center gap-2"
             >
-              {loading ? 'Posting...' : 'Post Comment'}
+              <MessageSquare className="h-4 w-4" />
+              <span className="text-xs">{comments.length}</span>
             </Button>
           </div>
-        )}
-
-        <div className="space-y-4">
-          {comments.map((comment) => (
-            <div key={comment.id} className="bg-[#1E1B3A] rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[#FFD600] font-semibold">{comment.username}</span>
-                <span className="text-[#B4B4D9] text-sm">
-                  {new Date(comment.created_at).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="text-white">{comment.text}</p>
-            </div>
-          ))}
         </div>
+
+        {/* Comments Section */}
+        {showComments && (
+          <div className="mt-4 space-y-4 border-t border-[#FFD600]/30 pt-4">
+            {/* Add Comment Form */}
+            <div className="space-y-2">
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Your name"
+                className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white text-sm"
+              />
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="bg-[#1E1B3A] border-2 border-[#FFD600]/30 text-white text-sm min-h-[80px]"
+              />
+              <Button
+                onClick={handleAddComment}
+                disabled={loading}
+                className="w-full bg-[#FFD600] hover:bg-[#FFE44D] text-[#1E1B3A] font-bold"
+              >
+                {loading ? 'Adding...' : 'Add Comment'}
+              </Button>
+            </div>
+
+            {/* Comments List */}
+            <div className="space-y-3">
+              {comments.map((comment) => (
+                <div key={comment.id} className="bg-[#1E1B3A] p-3 rounded-xl">
+                  <div className="font-bold text-white text-sm">{comment.username}</div>
+                  <div className="text-[#B4B4D9] text-sm mt-1">{comment.text}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   )
@@ -213,6 +306,24 @@ export default function FeatureRequest() {
     tag: ""
   })
 
+  async function fetchFeatures() {
+    try {
+      if (!boardId || !isValidUUID(boardId)) return;
+      
+      const { data, error } = await supabase
+        .from('features')
+        .select('*')
+        .eq('board_id', boardId)
+        .order('votes', { ascending: false })
+
+      if (error) throw error
+      setFeatures(data || [])
+    } catch (error) {
+      console.error('Error fetching features:', error)
+      setError(error.message)
+    }
+  }
+
   useEffect(() => {
     async function initializePage() {
       if (!boardId || !isValidUUID(boardId)) {
@@ -224,6 +335,35 @@ export default function FeatureRequest() {
     }
 
     initializePage()
+  }, [boardId])
+
+  useEffect(() => {
+    fetchFeatures()
+
+    // Subscribe to feature changes
+    const channel = supabase
+      .channel('feature_changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'features',
+        filter: `board_id=eq.${boardId}`
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setFeatures(currentFeatures => 
+            currentFeatures.map(feature => 
+              feature.id === payload.new.id ? { ...feature, ...payload.new } : feature
+            )
+          )
+        } else if (payload.eventType === 'INSERT') {
+          setFeatures(currentFeatures => [payload.new, ...currentFeatures])
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [boardId])
 
   async function fetchBoardAndFeatures(id) {
@@ -319,28 +459,37 @@ export default function FeatureRequest() {
     }
   }
 
-  const handleVote = async (featureId) => {
-    if (!featureId) return
-
+  const handleVote = async (featureId, voteChange) => {
     try {
-      const feature = features.find(f => f.id === featureId)
-      if (!feature) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
+      // Find the current feature
+      const currentFeature = features.find(f => f.id === featureId)
+      if (!currentFeature) return
+
+      // Update the votes count in features table
       const { data, error } = await supabase
         .from('features')
-        .update({ votes: feature.votes + 1 })
+        .update({ 
+          votes: currentFeature.votes + voteChange 
+        })
         .eq('id', featureId)
         .select()
         .single()
 
       if (error) throw error
 
+      // Update local state
       setFeatures(features.map(f => 
-        f.id === featureId ? { ...f, votes: f.votes + 1 } : f
+        f.id === featureId ? { ...f, votes: f.votes + voteChange } : f
       ))
+
     } catch (error) {
-      console.error('Error updating votes:', error)
-      setError(error.message)
+      console.error('Error updating vote:', error)
     }
   }
 
