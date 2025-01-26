@@ -92,92 +92,103 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Product Screenshots */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Feature Request Screenshot */}
-          <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-4 rounded-2xl overflow-hidden">
-            <div className="aspect-video relative rounded-lg overflow-hidden">
-              <Image
-                src="/feature-request-preview.png"
-                alt="Feature Request Board"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="p-4">
-              <h3 className="text-xl font-bold text-white mb-2">Feature Request Board</h3>
-              <p className="text-[#B4B4D9]">Let players suggest and vote on features they want to see in your game.</p>
+      
+      {/* Integration Steps */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-[#1E1B3A]/50">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl font-bold text-white mb-4">Easy Integration</h2>
+          <p className="text-[#B4B4D9]">Just two simple steps to add feedback to your game</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {/* Step 1 */}
+          <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-6 rounded-2xl">
+            <div className="space-y-4">
+              <div className="bg-[#FFD600] w-12 h-12 rounded-xl flex items-center justify-center">
+                <span className="text-[#1E1B3A] text-xl font-bold">1</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Copy Your Board Link</h3>
+              <p className="text-[#B4B4D9]">
+                After creating your board, copy the unique board URL from your dashboard. It will look like: <code className="bg-[#1E1B3A] px-2 py-1 rounded text-sm">feedback.yourgame.com/board/abc-123</code>
+              </p>
             </div>
           </Card>
 
-          {/* Roadmap Screenshot */}
-          <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-4 rounded-2xl overflow-hidden">
-            <div className="aspect-video relative rounded-lg overflow-hidden">
-              <Image
-                src="/roadmap-preview.png"
-                alt="Public Roadmap"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="p-4">
-              <h3 className="text-xl font-bold text-white mb-2">Public Roadmap</h3>
-              <p className="text-[#B4B4D9]">Share your development progress and keep players excited about upcoming features.</p>
+          {/* Step 2 */}
+          <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-6 rounded-2xl">
+            <div className="space-y-4">
+              <div className="bg-[#FFD600] w-12 h-12 rounded-xl flex items-center justify-center">
+                <span className="text-[#1E1B3A] text-xl font-bold">2</span>
+              </div>
+              <h3 className="text-xl font-bold text-white">Add Feedback Button</h3>
+              <p className="text-[#B4B4D9]">
+                Add a feedback button to your game&apos;s ui that opens the board url in a webview. Players can now submit and vote on features without leaving your game.
+              </p>
+              <div className="bg-[#1E1B3A] p-4 rounded-xl">
+                <pre className="text-sm text-[#B4B4D9] overflow-x-auto">
+                  <code>{`// Example Unity C# code
+                   public void OpenFeedboard() {
+                   Application.OpenURL("your-board-url");
+                   }`}</code>
+                </pre>
+              </div>
             </div>
           </Card>
         </div>
       </div>
-
       {/* Pricing Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
-          <p className="text-[#B4B4D9]">Start for free, upgrade when you need more features</p>
+          <p className="text-[#B4B4D9]">Start with a 7-day free trial, then choose your plan</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Free Tier */}
+          {/* Monthly Plan */}
           <Card className="bg-[#2D2B52] border-4 border-[#FFD600]/30 p-6 rounded-2xl">
             <div className="space-y-6">
               <div>
-                <h3 className="text-2xl font-bold text-white">Free</h3>
-                <p className="text-[#B4B4D9] mt-2">Perfect for indie developers</p>
+                <h3 className="text-2xl font-bold text-white">Monthly</h3>
+                <p className="text-[#B4B4D9] mt-2">Flexible month-to-month billing</p>
               </div>
-              <div className="text-4xl font-bold text-white">$0</div>
+              <div className="text-4xl font-bold text-white">$19<span className="text-lg text-[#B4B4D9]">/mo</span></div>
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-[#B4B4D9]">
                   <Check className="h-5 w-5 text-[#00FF94]" />
-                  <span>1 Feedback Board</span>
+                  <span>Unlimited Feedback Boards</span>
                 </div>
                 <div className="flex items-center gap-2 text-[#B4B4D9]">
                   <Check className="h-5 w-5 text-[#00FF94]" />
-                  <span>Basic Feature Voting</span>
+                  <span>Advanced Analytics</span>
                 </div>
                 <div className="flex items-center gap-2 text-[#B4B4D9]">
                   <Check className="h-5 w-5 text-[#00FF94]" />
-                  <span>Simple Roadmap</span>
+                  <span>Custom Branding</span>
+                </div>
+                <div className="flex items-center gap-2 text-[#B4B4D9]">
+                  <Check className="h-5 w-5 text-[#00FF94]" />
+                  <span>Priority Support</span>
                 </div>
               </div>
               <Button 
                 onClick={() => router.push('/create-board')}
                 className="w-full bg-[#2D2B52] hover:bg-[#373964] text-white font-bold h-12 rounded-xl border-2 border-[#FFD600]/30 hover:border-[#FFD600] transition-all duration-200"
               >
-                Get Started
+                Start Free Trial
               </Button>
             </div>
           </Card>
 
-          {/* Pro Tier */}
+          {/* Yearly Plan */}
           <Card className="bg-[#2D2B52] border-4 border-[#FFD600] p-6 rounded-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-[#FFD600] text-[#1E1B3A] px-4 py-1 font-bold text-sm transform translate-x-8 rotate-45">
-              POPULAR
+             
             </div>
             <div className="space-y-6">
               <div>
-                <h3 className="text-2xl font-bold text-white">Pro</h3>
-                <p className="text-[#B4B4D9] mt-2">For growing game studios</p>
+                <h3 className="text-2xl font-bold text-white">Yearly</h3>
+                <p className="text-[#B4B4D9] mt-2">Best value for long-term growth</p>
               </div>
-              <div className="text-4xl font-bold text-white">$24<span className="text-lg text-[#B4B4D9]">/mo</span></div>
+              <div className="text-4xl font-bold text-white">$79<span className="text-lg text-[#B4B4D9]">/year</span></div>
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-[#B4B4D9]">
                   <Check className="h-5 w-5 text-[#00FF94]" />
@@ -200,7 +211,7 @@ export default function Home() {
                 onClick={() => router.push('/create-board')}
                 className="w-full bg-[#FFD600] hover:bg-[#FFE44D] text-[#1E1B3A] font-bold h-12 rounded-xl shadow-[0_4px_0_#B89B00] hover:shadow-[0_6px_0_#B89B00] transform hover:-translate-y-0.5 transition-all duration-200"
               >
-                Get Started
+                Start Free Trial
               </Button>
             </div>
           </Card>
