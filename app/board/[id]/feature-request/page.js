@@ -62,7 +62,7 @@ function Feature({ feature, onVote }) {
 
     // Subscribe to comment changes
     const channel = supabase
-      .channel(`feature_${feature.id}_comments`)
+      .channel(`feature_${feature.id}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -70,7 +70,12 @@ function Feature({ feature, onVote }) {
         filter: `feature_id=eq.${feature.id}`
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
-          setComments(current => [payload.new, ...current])
+          // Check if comment already exists before adding
+          setComments(current => {
+            const exists = current.some(c => c.id === payload.new.id)
+            if (exists) return current
+            return [payload.new, ...current]
+          })
         }
       })
       .subscribe()
@@ -349,14 +354,12 @@ export default function FeatureRequest() {
         table: 'features',
         filter: `board_id=eq.${boardId}`
       }, (payload) => {
-        if (payload.eventType === 'UPDATE') {
-          setFeatures(currentFeatures => 
-            currentFeatures.map(feature => 
-              feature.id === payload.new.id ? { ...feature, ...payload.new } : feature
-            )
-          )
-        } else if (payload.eventType === 'INSERT') {
-          setFeatures(currentFeatures => [payload.new, ...currentFeatures])
+        if (payload.eventType === 'INSERT') {
+          setFeatures(current => {
+            const exists = current.some(f => f.id === payload.new.id)
+            if (exists) return current
+            return [payload.new, ...current]
+          })
         }
       })
       .subscribe()

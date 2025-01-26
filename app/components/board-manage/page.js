@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowUpIcon, Copy, ExternalLink, Rocket, Trophy, Check, MessageSquare, LogOut, User } from "lucide-react"
+import { ArrowUpIcon, Copy, ExternalLink, Rocket, Trophy, Check, MessageSquare, LogOut, User, Trash2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSupabase } from "@/components/providers/supabase-provider"
@@ -27,7 +27,7 @@ const STATUS_COLORS = {
   LAUNCHED: "bg-[#00FF94]"
 }
 
-export default function BoardManage(props) {
+export default function BoardManage({ board }) {
   const router = useRouter()
   const { supabase } = useSupabase()
   const [features, setFeatures] = useState([])
@@ -37,7 +37,6 @@ export default function BoardManage(props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [user, setUser] = useState(null)
-  const board = props.board || {}
 
   useEffect(() => {
     if (supabase) {
@@ -137,12 +136,38 @@ export default function BoardManage(props) {
     localStorage.setItem(`features_${board?.id}`, JSON.stringify(updatedFeatures))
   }
 
-  const handleDeleteBoard = () => {
-    const storedBoards = JSON.parse(localStorage.getItem('boards') || '[]')
-    const updatedBoards = storedBoards.filter(b => b.id !== board?.id)
-    localStorage.setItem('boards', JSON.stringify(updatedBoards))
-    localStorage.removeItem(`features_${board?.id}`)
-    router.push('/')
+  const handleDeleteFeature = async (featureId) => {
+    try {
+      const { error } = await supabase
+        .from('features')
+        .delete()
+        .eq('id', featureId)
+
+      if (error) throw error
+
+      setFeatures(features.filter(f => f.id !== featureId))
+    } catch (error) {
+      console.error('Error deleting feature:', error)
+    }
+  }
+
+  const handleDeleteBoard = async () => {
+    if (!confirm('Are you sure you want to delete this board? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('boards')
+        .delete()
+        .eq('id', board.id)
+
+      if (error) throw error
+
+      router.push('/create-board')
+    } catch (error) {
+      console.error('Error deleting board:', error)
+    }
   }
 
   const getSortedFeatures = (features) => {
@@ -352,6 +377,14 @@ export default function BoardManage(props) {
                           <span className="text-lg">{feature.votes}</span>
                         </Button>
                       </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-4">
+                      <Button
+                        onClick={() => handleDeleteFeature(feature.id)}
+                        className="bg-transparent hover:bg-red-500/10 text-red-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </Card>
                 ))

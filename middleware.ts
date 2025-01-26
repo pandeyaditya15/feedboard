@@ -6,18 +6,20 @@ export async function middleware(req: NextRequest) {
   try {
     const res = NextResponse.next()
     const supabase = createMiddlewareClient({ req, res })
+    const { data: { session } } = await supabase.auth.getSession()
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    // Allow access to public routes
+    // Allow access to public routes and board features
     const publicRoutes = ['/', '/login', '/auth/callback']
-    if (publicRoutes.includes(req.nextUrl.pathname)) {
+    const publicBoardRoutes = ['/board/[id]/feature-request', '/board/[id]/roadmap']
+    const isPublicBoardRoute = publicBoardRoutes.some(route => 
+      req.nextUrl.pathname.includes(route.replace('[id]', ''))
+    )
+
+    if (publicRoutes.includes(req.nextUrl.pathname) || isPublicBoardRoute) {
       return res
     }
 
-    // Protect /create-board and other private routes
+    // Protect private routes
     if (!session) {
       const redirectUrl = new URL('/login', req.url)
       redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
